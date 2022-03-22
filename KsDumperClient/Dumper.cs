@@ -126,5 +126,95 @@ namespace KsDumperClient
             ProcessSummary targetProcess = processList.SelectedItems[0].Tag as ProcessSummary;
             Process.Start("explorer.exe", Path.GetDirectoryName(targetProcess.MainModuleFileName));
         }
+        
+        
+        private void moduleToolStripMenuItem_DropDownOpening(object sender, EventArgs e)
+        {
+            if (driver.HasValidHandle())
+            {
+                var targetProcess = processList.SelectedItems[0].Tag as ProcessSummary;
+                var proc = Process.GetProcessById(targetProcess.ProcessId);
+                if (proc != null)
+                {
+                    var modulesList = new List<ProcessModule>();
+                    foreach (ProcessModule module in proc.Modules)
+                    {
+                        modulesList.Add(module);
+                    }
+                    
+                    modulesList.Sort(new Compare());
+                    moduleToolStripMenuItem.DropDownItems.Clear();
+
+                    foreach (var module in modulesList)
+                    {
+                        var menuItem = new ToolStripMenuItem(module.ModuleName);
+                        menuItem.Tag = module;
+                        menuItem.Click += MenuItem_Click;
+                        moduleToolStripMenuItem.DropDownItems.Add(menuItem);
+                    }
+                }
+            }
+
+        }
+
+        private void MenuItem_Click(object sender, EventArgs e)
+        {
+            var targetProcess = processList.SelectedItems[0].Tag as ProcessSummary;
+            var module = (sender as ToolStripMenuItem).Tag as ProcessModule;
+            if (targetProcess is null || module is null)
+            {
+                MessageBox.Show("targetProcess Is Null!!");
+                return; 
+            }
+            targetProcess.MainModuleImageSize = (uint)module.ModuleMemorySize;
+            targetProcess.MainModuleBase = (ulong)module.BaseAddress.ToInt64();
+            targetProcess.MainModuleEntryPoint = (ulong)module.EntryPointAddress.ToInt64();
+            targetProcess.MainModuleFileName = module.FileName;
+
+            if (dumper.DumpProcess(targetProcess, out PEFile peFile))
+            {
+                Invoke(new Action(() =>
+                {
+                    using (SaveFileDialog sfd = new SaveFileDialog())
+                    {
+                        sfd.FileName = module.FileName.Replace(".dll", "_dump.dll");
+                        sfd.Filter = "Executable File (.dll)|*.dll";
+
+                        if (sfd.ShowDialog() == DialogResult.OK)
+                        {
+                            peFile.SaveToDisk(sfd.FileName);
+                            Logger.Log("Saved at '{0}' !", sfd.FileName);
+                        }
+                    }
+                }));
+            }
+            else
+            {
+                Invoke(new Action(() =>
+                {
+                    MessageBox.Show("Unable to dump target process !", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }));
+            }
+        }
+
+        class Compare : IComparer<ProcessModule>, IEqualityComparer<ProcessModule>
+        {
+            public bool Equals(ProcessModule x, ProcessModule y)
+            {
+                return x.ModuleName == y.ModuleName;
+            }
+
+            public int GetHashCode(ProcessModule obj)
+            {
+                throw new NotImplementedException();
+            }
+
+            int IComparer<ProcessModule>.Compare(ProcessModule x, ProcessModule y)
+            {
+                if (x == null || y == null)
+                    return 0;
+                return x.ModuleName.CompareTo(y.ModuleName);
+            }
+        }
     }
 }
