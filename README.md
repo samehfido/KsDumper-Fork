@@ -1,5 +1,5 @@
 # KsDumper
-![Demo](https://i.imgur.com/6XyMDxa.gif)
+![Demo](https://github.com/samehfido/KsDumper-Fork/blob/master/module.PNG)
 
 I always had an interest in reverse engineering. A few days ago I wanted to look at some game internals for fun, but it was packed & protected by EAC (EasyAntiCheat).
 This means its handle were stripped and I was unable to dump the process from Ring3. I decided to try to make a custom driver that would allow me to copy the process memory without using OpenProcess.
